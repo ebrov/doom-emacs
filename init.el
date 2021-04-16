@@ -35,3 +35,8 @@
 
 ;; And let 'er rip!
 (doom-initialize)
+
+;; Set swiper in place of incremental search
+(global-set-key (kbd "C-s") 'swiper)
+(global-set-key (kbd "C-x a") 'align)
+(show-paren-mode)

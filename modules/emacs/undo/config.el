@@ -50,7 +50,7 @@
   ;; Branching & persistent undo
   :hook (doom-first-buffer . global-undo-tree-mode)
   :config
-  (setq undo-tree-visualizer-diff t
+  (setq undo-tree-visualizer-diff nil
         undo-tree-auto-save-history t
         undo-tree-enable-undo-in-region t
         ;; Increase undo-limits by a factor of ten to avoid emacs prematurely
