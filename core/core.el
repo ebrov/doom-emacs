@@ -285,7 +285,6 @@ config.el instead."
 ;; Adopt a sneaky garbage collection strategy of waiting until idle time to
 ;; collect; staving off the collector while the user is working.
 (setq gcmh-idle-delay 5
-      gcmh-high-cons-threshold (* 16 1024 1024)  ; 16mb
       gcmh-verbose doom-debug-p)
 
 ;; Emacs "updates" its ui more often than it needs to, so we slow it down
@@ -297,6 +296,10 @@ config.el instead."
 ;; hasn't been determined, but we inhibit it there anyway. This increases memory
 ;; usage, however!
 (setq inhibit-compacting-font-caches t)
+
+;; Increase how much is read from processes in a single chunk (default is 4kb).
+;; This is further increased by our more expensive LSP module, and where needed.
+(setq read-process-output-max (* 64 1024))  ; 64kb
 
 ;; Introduced in Emacs HEAD (b2f8c9f), this inhibits fontification while
 ;; receiving input, which should help with performance while scrolling.
