@@ -87,7 +87,7 @@ string starting with the character contained in car.
 This variable is used only if you built Emacs with Harfbuzz on a version >= 28")
 
 (defvar +ligatures-in-modes
-  '(not special-mode comint-mode eshell-mode term-mode vterm-mode)
+  '(not special-mode comint-mode eshell-mode term-mode vterm-mode Info-mode)
   "List of major modes where ligatures should be enabled.
 
   If t, enable it everywhere (except `fundamental-mode').
@@ -188,7 +188,7 @@ and cannot run in."
       (dolist (char-regexp +ligatures-composition-alist)
         (set-char-table-range
          +ligature--composition-table
-         (car char-regexp) `([,(cdr char-regexp) 0 font-shape-gstring])))
+         (car char-regexp) `([,(concat "." (cdr char-regexp)) 0 font-shape-gstring])))
       (set-char-table-parent +ligature--composition-table composition-function-table))))
 
  ;; Fallback ligature support for certain, patched fonts. Install them with

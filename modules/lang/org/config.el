@@ -130,9 +130,7 @@ Is relative to `org-directory', unless it is absolute. Is used in Doom's default
         org-refile-use-outline-path 'file
         org-outline-path-complete-in-steps nil)
 
-  ;; Previews are rendered with the incorrect background
   (plist-put org-format-latex-options :scale 1.5) ; larger previews
-  (plist-put org-format-latex-options :background 'default) ; match the background
 
   ;; HACK Face specs fed directly to `org-todo-keyword-faces' don't respect
   ;;      underlying faces like the `org-todo' face does, so we define our own
@@ -618,13 +616,11 @@ mutating hooks on exported output, like formatters."
 
   (defun +org--restart-mode-h ()
     "Restart `org-mode', but only once."
+    (quiet! (org-mode-restart))
+    (delq! (current-buffer) org-agenda-new-buffers)
     (remove-hook 'doom-switch-buffer-hook #'+org--restart-mode-h
                  'local)
-    (delq! (current-buffer) org-agenda-new-buffers)
-    (let ((file buffer-file-name)
-          (inhibit-redisplay t))
-      (kill-buffer)
-      (find-file file)))
+    (run-hooks 'find-file-hook))
 
   (add-hook! 'org-agenda-finalize-hook
     (defun +org-exclude-agenda-buffers-from-workspace-h ()
@@ -649,11 +645,14 @@ can grow up to be fully-fledged org-mode buffers."
                     nil 'local)))))
 
   (defvar recentf-exclude)
-  (defadvice! +org--exclude-agenda-buffers-from-recentf-a (orig-fn file)
+  (defadvice! +org--optimize-backgrounded-agenda-buffers-a (orig-fn file)
     "Prevent temporarily opened agenda buffers from polluting recentf."
     :around #'org-get-agenda-file-buffer
     (let ((recentf-exclude (list (lambda (_file) t)))
           (doom-inhibit-large-file-detection t)
+          org-startup-indented
+          org-startup-folded
+          vc-handled-backends
           org-mode-hook
           find-file-hook)
       (funcall orig-fn file)))

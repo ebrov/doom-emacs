@@ -204,7 +204,7 @@ results buffer.")
     [remap recentf-open-files]       #'counsel-recentf
     [remap set-variable]             #'counsel-set-variable
     [remap swiper]                   #'counsel-grep-or-swiper
-    [remap unicode-chars-list-chars] #'counsel-unicode-char
+    [remap insert-char]              #'counsel-unicode-char
     [remap yank-pop]                 #'counsel-yank-pop)
   :config
   (set-popup-rule! "^\\*ivy-occur" :size 0.35 :ttl 0 :quit nil)
@@ -392,7 +392,7 @@ results buffer.")
           lsp-ivy-workspace-symbol ivy-resume ivy--restore-session
           counsel-grep counsel-git-grep counsel-rg counsel-ag counsel-ack
           counsel-fzf counsel-pt counsel-imenu counsel-yank-pop counsel-recentf
-          counsel-buffer-or-recentf counsel-outline)
+          counsel-buffer-or-recentf counsel-outline counsel-jq)
         ivy-prescient-retain-classic-highlighting t)
   (defun +ivy-prescient-non-fuzzy (str)
     (let ((prescient-filter-method '(literal regexp)))

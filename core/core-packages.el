@@ -96,10 +96,7 @@ uses a straight or package.el command directly).")
       ;; no affect on packages that are pinned, however (run 'doom purge' to
       ;; compact those after-the-fact). Some packages break when shallow cloned
       ;; (like magit and org), but we'll deal with that elsewhere.
-      straight-vc-git-default-clone-depth 1
-      ;; Prefix declarations are unneeded bulk added to our autoloads file. Best
-      ;; we don't have to deal with them at all.
-      autoload-compute-prefixes nil)
+      straight-vc-git-default-clone-depth '(1 single-branch))
 
 (with-eval-after-load 'straight
   ;; `let-alist' is built into Emacs 26 and onwards
@@ -111,25 +108,6 @@ uses a straight or package.el command directly).")
   (append (apply orig-fn args) ; lockfiles still take priority
           (doom-package-pinned-list)))
 
-(defadvice! doom--byte-compile-in-same-session-a (recipe)
-  "Straight recompiles packages from an Emacs child process. This is sensible,
-but many packages don't properly load their macro dependencies, causing errors,
-which we can't possibly police, so I revert straight to its old strategy of
-compiling in the same session."
-  :override #'straight--build-compile
-  (straight--with-plist recipe (package)
-    ;; These two `let' forms try very, very hard to make byte-compilation an
-    ;; invisible process. Lots of packages have byte-compile warnings; I
-    ;; don't need to know about them and neither do straight.el users.
-    (letf! (;; Prevent Emacs from asking the user to save all their
-            ;; files before compiling.
-            (#'save-some-buffers #'ignore))
-      (quiet!
-       ;; Note that there is in fact no `byte-compile-directory' function.
-       (byte-recompile-directory
-        (straight--build-dir package)
-        0 'force)))))
-
 
 ;;
 ;;; Bootstrappers
@@ -140,27 +118,44 @@ compiling in the same session."
                           "://github.com/"
                           (or (plist-get recipe :repo) "raxod502/straight.el")))
         (branch (or (plist-get recipe :branch) straight-repository-branch))
-        (call (if doom-debug-p #'doom-exec-process #'doom-call-process)))
+        (call (if doom-debug-p
+                  (lambda (&rest args)
+                    (print! "%s" (cdr (apply #'doom-call-process args))))
+                (lambda (&rest args)
+                  (message "%s" (cdr (apply #'doom-call-process args)))))))
     (unless (file-directory-p repo-dir)
-      (message "Installing straight...")
-      (cond
-       ((eq straight-vc-git-default-clone-depth 'full)
-        (funcall call "git" "clone" "--origin" "origin" repo-url repo-dir))
-       ((null pin)
-        (funcall call "git" "clone" "--origin" "origin" repo-url repo-dir
-                 "--depth" (number-to-string straight-vc-git-default-clone-depth)
-                 "--branch" straight-repository-branch
-                 "--single-branch" "--no-tags"))
-       ((integerp straight-vc-git-default-clone-depth)
-        (make-directory repo-dir t)
-        (let ((default-directory repo-dir))
-          (funcall call "git" "init")
-          (funcall call "git" "checkout" "-b" straight-repository-branch)
-          (funcall call "git" "remote" "add" "origin" repo-url)
-          (funcall call "git" "fetch" "origin" pin
-                   "--depth" (number-to-string straight-vc-git-default-clone-depth)
-                   "--no-tags")
-          (funcall call "git" "checkout" "--detach" pin)))))
+      (print! (start "Installing straight..."))
+      (print-group!
+       (cl-destructuring-bind (depth . options)
+           (doom-enlist straight-vc-git-default-clone-depth)
+         (let ((branch-switch (if (memq 'single-branch options)
+                                  "--single-branch"
+                                "--no-single-branch")))
+           (cond
+            ((eq 'full depth)
+             (funcall call "git" "clone" "--origin" "origin"
+                      branch-switch repo-url repo-dir))
+            ((integerp depth)
+             (if (null pin)
+                 (progn
+                   (when (file-directory-p repo-dir)
+                     (delete-directory repo-dir 'recursive))
+                   (funcall call "git" "clone" "--origin" "origin" repo-url
+                            "--no-checkout" repo-dir
+                            "--depth" (number-to-string depth)
+                            branch-switch
+                            "--no-tags"
+                            "--branch" straight-repository-branch))
+               (make-directory repo-dir 'recursive)
+               (let ((default-directory repo-dir))
+                 (funcall call "git" "init" "-b" straight-repository-branch)
+                 (funcall call "git" "remote" "add" "origin" repo-url
+                          "--master" straight-repository-branch)
+                 (funcall call "git" "fetch" "origin" pin
+                          "--depth" (number-to-string depth)
+                          "--no-tags")
+                 (funcall call "git" "reset" "--hard" pin)))))))
+       (print! (success "Done!"))))
     (require 'straight (concat repo-dir "/straight.el"))
     (doom-log "Initializing recipes")
     (with-temp-buffer
@@ -173,10 +168,19 @@ compiling in the same session."
 (defun doom--ensure-core-packages (packages)
   (doom-log "Installing core packages")
   (dolist (package packages)
-    (let ((name (car package)))
+    (let* ((name (car package))
+           (repo (symbol-name name)))
       (when-let (recipe (plist-get (cdr package) :recipe))
-        (straight-override-recipe (cons name recipe)))
-      (straight-use-package name))))
+        (straight-override-recipe (cons name recipe))
+        (when-let (local-repo (plist-get recipe :local-repo))
+          (setq repo local-repo)))
+      ;; Only clone the package, don't build them. Straight hasn't been fully
+      ;; configured by this point.
+      (straight-use-package name nil t)
+      ;; In case the package hasn't been built yet.
+      (or (member (directory-file-name (straight--build-dir "straight"))
+                  load-path)
+          (add-to-list 'load-path (directory-file-name (straight--repos-dir repo)))))))
 
 (defun doom-initialize-core-packages (&optional force-p)
   "Ensure `straight' is installed and was compiled with this version of Emacs."
@@ -209,21 +213,11 @@ processed."
     (let (packages)
       (dolist (package doom-packages)
         (cl-destructuring-bind
-            (name &key recipe disable ignore shadow &allow-other-keys) package
+            (name &key recipe disable ignore &allow-other-keys) package
           (if ignore
               (straight-override-recipe (cons name '(:type built-in)))
             (if disable
                 (cl-pushnew name doom-disabled-packages)
-              (when shadow
-                (straight-override-recipe (cons shadow `(:local-repo nil :package included :build nil :included-by ,name)))
-                (let ((site-load-path (copy-sequence doom--initial-load-path))
-                      lib)
-                  (while (setq
-                          lib (locate-library (concat (symbol-name shadow) ".el")
-                                              nil site-load-path))
-                    (let ((lib (directory-file-name (file-name-directory lib))))
-                      (setq site-load-path (delete lib site-load-path)
-                            load-path (delete lib load-path))))))
               (when recipe
                 (straight-override-recipe (cons name recipe)))
               (appendq! packages (cons name (straight--get-dependencies name)))))))
@@ -371,6 +365,8 @@ installed."
                                  plist :modules
                                  (list (doom-module-from-path file))))
                           doom-packages))))))))
+    (user-error
+     (user-error (error-message-string e)))
     (error
      (signal 'doom-package-error
              (list (doom-module-from-path file)
@@ -440,7 +436,7 @@ ones."
 ;;; Module package macros
 
 (cl-defmacro package!
-    (name &rest plist &key built-in recipe ignore _type _pin _disable _shadow)
+    (name &rest plist &key built-in recipe ignore _type _pin _disable)
   "Declares a package and how to install it (if applicable).
 
 This macro is declarative and does not load nor install packages. It is used to
@@ -477,10 +473,6 @@ Accepts the following properties:
    inform help commands like `doom/help-packages' that this is a built-in
    package. If set to 'prefer, the package will not be installed if it is
    already provided by Emacs.
- :shadow PACKAGE
-   Informs Doom that this package is shadowing a built-in PACKAGE; the original
-   package will be removed from `load-path' to mitigate conflicts, and this new
-   package will satisfy any dependencies on PACKAGE in the future.
 
 Returns t if package is successfully registered, and nil if it was disabled
 elsewhere."
@@ -491,7 +483,7 @@ elsewhere."
   (when built-in
     (when (and (not ignore)
                (equal built-in '(quote prefer)))
-      (setq built-in `(locate-library ,(symbol-name name) nil doom--initial-load-path)))
+      (setq built-in `(locate-library ,(symbol-name name) nil (get 'load-path 'initial-value))))
     (plist-delete! plist :built-in)
     (plist-put! plist :ignore built-in))
   `(let* ((name ',name)

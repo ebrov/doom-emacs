@@ -50,13 +50,27 @@ in."
   (print! (start "Checking your Emacs version..."))
   (cond
    (EMACS28+
-    (warn! (concat "Emacs %s detected. Doom should support this version, but be prepared for "
-                   "Emacs updates causing breakages.")
+    (warn! (concat "Emacs %s detected. Doom support this version, but you are living on "
+                   "edge! Be prepared for breakages in future versions of Emacs.")
            emacs-version))
    ((= emacs-major-version 26)
-    (warn! (concat "Emacs %s detected. Doom is dropping Emacs 26.x support very soon. Consider "
-                   "upgrading to Emacs 27.1.")
+    (warn! (concat "Emacs %s detected. Doom is dropping Emacs 26.x support in June 2021. "
+                   "Consider upgrading to Emacs 27.1 (or better: 27.2) soon!")
            emacs-version)))
+
+  (print! (start "Checking for Doom's prerequisites..."))
+  (print-group!
+   (if (not (executable-find "git"))
+       (error! "Couldn't find git on your machine! Doom's package manager won't work.")
+     (let ((version (cadr (split-string
+                           (cdr (doom-call-process "git" "version"))
+                           " version "))))
+       (when (version< version "2.28")
+         (error! "Git %s detected! Doom requires git 2.28 or newer!"
+                 version))))
+
+   (unless (executable-find "rg")
+     (error! "Couldn't find the `rg' binary; this a hard dependecy for Doom, file searches may not work at all")))
 
   (print! (start "Checking for Emacs config conflicts..."))
   (when (file-exists-p "~/.emacs")
@@ -130,17 +144,18 @@ in."
                      file (/ size 1024 1024.0))
               (explain! "Consider deleting it from your system (manually)"))))
 
-        (unless (executable-find "rg")
-          (error! "Couldn't find the `rg' binary; this a hard dependecy for Doom, file searches may not work at all"))
-
         (unless (ignore-errors (executable-find doom-projectile-fd-binary))
           (warn! "Couldn't find the `fd' binary; project file searches will be slightly slower"))
 
         (require 'projectile)
         (when (projectile-project-root "~")
           (warn! "Your $HOME is recognized as a project root")
-          (explain! "Doom will disable bottom-up root search, which may reduce the accuracy of project\n"
-                    "detection."))
+          (explain! "Emacs will assume $HOME is the root of any project living under $HOME. If this isn't\n"
+                    "desired, you will need to remove \".git\" from `projectile-project-root-files-bottom-up'\n"
+                    "(a variable), e.g.\n\n"
+                    "  (after! projectile\n"
+                    "    (setq projectile-project-root-files-bottom-up\n"
+                    "          (remove \".git\" projectile-project-root-files-bottom-up)))"))
 
         ;; There should only be one
         (when (and (file-equal-p doom-private-dir "~/.config/doom")
