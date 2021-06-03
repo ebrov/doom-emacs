@@ -37,6 +37,11 @@
 ;; loaded, and hooks set up for an interactive session.
 (doom-initialize)
 
+;; Set swiper in place of incremental search
+(global-set-key (kbd "C-s") 'swiper)
+(global-set-key (kbd "C-x a") 'align)
+(show-paren-mode)
+
 ;; Now we load all enabled modules in the order dictated by your `doom!' block
 ;; in $DOOMDIR/init.el. `doom-initialize-modules' loads them (and hooks) in the
 ;; given order:
@@ -55,3 +60,4 @@
 ;;
 ;; And then we're good to go!
 (doom-initialize-modules)
+
