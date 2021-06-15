@@ -447,8 +447,8 @@ directives. By default, this only recognizes C directives.")
        :n "]w"   #'+workspace/switch-right
        :n "[w"   #'+workspace/switch-left)
       (:when (featurep! :ui tabs)
-       :n "gt"   #'centaur-tabs-forward
-       :n "gT"   #'centaur-tabs-backward)
+       :n "gt"   #'+tabs:next-or-goto
+       :n "gT"   #'+tabs:previous-or-goto)
 
       ;; custom vim-unmpaired-esque keys
       :m  "]#"    #'+evil/next-preproc-directive
@@ -493,6 +493,9 @@ directives. By default, this only recognizes C directives.")
        :v  "gR"  #'+eval:replace-region
        ;; Restore these keybinds, since the blacklisted/overwritten gr/gR will
        ;; undo them:
+       (:after compile
+        :map (compilation-mode-map compilation-minor-mode-map)
+        :n "gr" #'recompile)
        (:after dired
         :map dired-mode-map
         :n "gr" #'revert-buffer)
