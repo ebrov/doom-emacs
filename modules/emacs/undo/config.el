@@ -57,7 +57,7 @@
   :hook (doom-first-buffer . global-undo-tree-mode)
   :custom (undo-tree-history-directory-alist `(("." . ,(concat doom-cache-dir "undo-tree-hist/"))))
   :config
-  (setq undo-tree-visualizer-diff t
+  (setq undo-tree-visualizer-diff nil
         undo-tree-auto-save-history t
         undo-tree-enable-undo-in-region t
         ;; Increase undo limits to avoid emacs prematurely truncating the undo
