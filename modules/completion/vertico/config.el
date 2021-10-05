@@ -7,6 +7,8 @@ The completion/vertico module uses the orderless completion style by default,
 but this returns too broad a candidate set for company completion. This variable
 overrides `completion-styles' during company completion sessions.")
 
+(defvar +vertico-consult-fd-args nil
+  "Shell command and arguments the vertico module uses for fd.")
 
 ;;
 ;;; Packages
@@ -26,7 +28,7 @@ overrides `completion-styles' during company completion sessions.")
   ;; Cleans up path when moving directories with shadowed paths syntax, e.g.
   ;; cleans ~/foo/bar/// to /, and ~/foo/bar/~/ to ~/.
   (add-hook 'rfn-eshadow-update-overlay-hook #'vertico-directory-tidy)
-  (map! :map vertico-map [backspace] #'+vertico/backward-updir))
+  (map! :map vertico-map [backspace] #'vertico-directory-delete-char))
 
 
 (use-package! orderless
@@ -34,13 +36,16 @@ overrides `completion-styles' during company completion sessions.")
   :config
   (defun +vertico-orderless-dispatch (pattern _index _total)
     (cond
-     ;; Ensure that $ works with Consult commands, which add disambiguation suffixes
+     ;; Ensure $ works with Consult commands, which add disambiguation suffixes
      ((string-suffix-p "$" pattern)
       `(orderless-regexp . ,(concat (substring pattern 0 -1) "[\x100000-\x10FFFD]*$")))
      ;; Ignore single !
      ((string= "!" pattern) `(orderless-literal . ""))
      ;; Without literal
      ((string-prefix-p "!" pattern) `(orderless-without-literal . ,(substring pattern 1)))
+     ;; Character folding
+     ((string-prefix-p "%" pattern) `(char-fold-to-regexp . ,(substring pattern 1)))
+     ((string-suffix-p "%" pattern) `(char-fold-to-regexp . ,(substring pattern 0 -1)))
      ;; Initialism matching
      ((string-prefix-p "`" pattern) `(orderless-initialism . ,(substring pattern 1)))
      ((string-suffix-p "`" pattern) `(orderless-initialism . ,(substring pattern 0 -1)))
@@ -50,13 +55,20 @@ overrides `completion-styles' during company completion sessions.")
      ;; Flex matching
      ((string-prefix-p "~" pattern) `(orderless-flex . ,(substring pattern 1)))
      ((string-suffix-p "~" pattern) `(orderless-flex . ,(substring pattern 0 -1)))))
+  (add-to-list
+   'completion-styles-alist
+   '(+vertico-basic-remote
+     +vertico-basic-remote-try-completion
+     +vertico-basic-remote-all-completions
+     "Use basic completion on remote files only"))
   (setq completion-styles '(orderless)
         completion-category-defaults nil
-        ;; note that despite override in the name orderless can still be used in find-file etc.
-        completion-category-overrides '((file (styles . (orderless partial-completion))))
+        ;; note that despite override in the name orderless can still be used in
+        ;; find-file etc.
+        completion-category-overrides '((file (styles +vertico-basic-remote orderless partial-completion)))
         orderless-style-dispatchers '(+vertico-orderless-dispatch)
         orderless-component-separator "[ &]")
-  ;; otherwise find-file gets different highlighting than other commands
+  ;; ...otherwise find-file gets different highlighting than other commands
   (set-face-attribute 'completions-first-difference nil :inherit nil))
 
 
@@ -67,12 +79,13 @@ overrides `completion-styles' during company completion sessions.")
     [remap apropos]                       #'consult-apropos
     [remap bookmark-jump]                 #'consult-bookmark
     [remap evil-show-marks]               #'consult-mark
+    [remap evil-show-jumps]               #'+vertico/jump-list
     [remap goto-line]                     #'consult-goto-line
     [remap imenu]                         #'consult-imenu
     [remap locate]                        #'consult-locate
     [remap load-theme]                    #'consult-theme
     [remap man]                           #'consult-man
-    [remap recentf-open-files]            (cmd! (recentf-mode +1) (consult-recent-file))
+    [remap recentf-open-files]            #'consult-recent-file
     [remap switch-to-buffer]              #'consult-buffer
     [remap switch-to-buffer-other-window] #'consult-buffer-other-window
     [remap switch-to-buffer-other-frame]  #'consult-buffer-other-frame
@@ -84,15 +97,17 @@ overrides `completion-styles' during company completion sessions.")
   (setq consult-project-root-function #'doom-project-root
         consult-narrow-key "<"
         consult-line-numbers-widen t
-        consult-async-min-input 2)
-
-  (when doom-projectile-fd-binary
-    (setq consult-async-refresh-delay  0.2
-          consult-async-input-throttle 0.3)
-    (setq consult-find-command
-          (format "%s -i -H -E .git --regex %s ARG OPTS"
-                  doom-projectile-fd-binary
-                  (if IS-WINDOWS "--path-separator=/" ""))))
+        consult-async-min-input 2
+        consult-async-refresh-delay  0.15
+        consult-async-input-throttle 0.2
+        consult-async-input-debounce 0.1)
+  (unless +vertico-consult-fd-args
+    (setq +vertico-consult-fd-args
+          (if doom-projectile-fd-binary
+              (format "%s --color=never -i -H -E .git --regex %s"
+                      doom-projectile-fd-binary
+                      (if IS-WINDOWS "--path-separator=/" ""))
+            consult-find-args)))
 
   (consult-customize
    consult-ripgrep consult-git-grep consult-grep
@@ -102,12 +117,10 @@ overrides `completion-styles' during company completion sessions.")
    +default/search-cwd +default/search-other-cwd
    +default/search-notes-for-symbol-at-point
    consult--source-file consult--source-project-file consult--source-bookmark
-   :preview-key (list (kbd "C-SPC") (kbd "C-M-j") (kbd "C-M-k")))
+   :preview-key (kbd "C-SPC"))
   (consult-customize
    consult-theme
-   :preview-key
-   (list (kbd "C-SPC") (kbd "C-M-j") (kbd "C-M-k")
-         :debounce 0.5 'any))
+   :preview-key (list (kbd "C-SPC") :debounce 0.5 'any))
   (after! org
     (defvar +vertico--consult-org-source
       `(:name     "Org"
@@ -116,7 +129,10 @@ overrides `completion-styles' during company completion sessions.")
         :category buffer
         :state    ,#'consult--buffer-state
         :items    ,(lambda () (mapcar #'buffer-name (org-buffer-list)))))
-    (add-to-list 'consult-buffer-sources '+vertico--consult-org-source 'append)))
+    (add-to-list 'consult-buffer-sources '+vertico--consult-org-source 'append))
+  (map! :map consult-crm-map
+        :desc "Select candidate" "TAB" #'+vertico/crm-select
+        :desc "Enter candidates" "RET" #'+vertico/crm-exit))
 
 
 (use-package! consult-flycheck
@@ -127,6 +143,8 @@ overrides `completion-styles' during company completion sessions.")
 (use-package! embark
   :defer t
   :init
+  (setq which-key-use-C-h-commands nil
+        prefix-help-command #'embark-prefix-help-command)
   (map! [remap describe-bindings] #'embark-bindings
         "C-;"               #'embark-act  ; to be moved to :config default if accepted
         (:map minibuffer-local-map
@@ -137,12 +155,8 @@ overrides `completion-styles' during company completion sessions.")
          :desc "Actions" "a" #'embark-act)) ; to be moved to :config default if accepted
   :config
   (set-popup-rule! "^\\*Embark Export Grep" :size 0.35 :ttl 0 :quit nil)
-
-  (setq embark-action-indicator
-        (lambda (map _target)
-          (which-key--show-keymap "Embark" map nil nil 'no-paging)
-          #'which-key--hide-popup-ignore-command)
-        embark-become-indicator embark-action-indicator)
+  (cl-nsubstitute #'+vertico-embark-which-key-indicator #'embark-mixed-indicator embark-indicators)
+  (add-to-list 'embark-indicators #'+vertico-embark-vertico-indicator)
   ;; add the package! target finder before the file target finder,
   ;; so we don't get a false positive match.
   (let ((pos (or (cl-position
@@ -151,17 +165,21 @@ overrides `completion-styles' during company completion sessions.")
                  (length embark-target-finders))))
     (cl-callf2
         cons
-        '+vertico--embark-target-package
+        '+vertico-embark-target-package-fn
         (nthcdr pos embark-target-finders)))
-  (setq embark-package-map (make-sparse-keymap))
+  (embark-define-keymap +vertico/embark-doom-package-map
+    "Keymap for Embark package actions for packages installed by Doom."
+    ("h" doom/help-packages)
+    ("b" doom/bump-package)
+    ("c" doom/help-package-config)
+    ("u" doom/help-package-homepage))
+  (setf (alist-get 'package embark-keymap-alist) #'+vertico/embark-doom-package-map)
   (map! (:map embark-file-map
-         :desc "Open target with sudo" "s"   #'doom/sudo-find-file
-         :desc "Open in new workspace" "TAB" #'+vertico-embark-open-in-new-workspace)
-        (:map embark-package-map
-         "h" #'doom/help-packages
-         "b" #'doom/bump-package
-         "c" #'doom/help-package-config
-         "u" #'doom/help-package-homepage)))
+         :desc "Open target with sudo" "s" #'doom/sudo-find-file
+         (:when (featurep! :tools magit)
+          :desc "Open magit-status of target" "g"   #'+vertico/embark-magit-status)
+         (:when (featurep! :ui workspaces)
+          :desc "Open in new workspace" "TAB" #'+vertico/embark-open-in-new-workspace))))
 
 
 (use-package! marginalia
@@ -172,11 +190,20 @@ overrides `completion-styles' during company completion sessions.")
   :config
   (when (featurep! +icons)
     (add-hook 'marginalia-mode-hook #'all-the-icons-completion-marginalia-setup))
+  (advice-add #'marginalia--project-root :override #'doom-project-root)
   (pushnew! marginalia-command-categories
+            ;; HACK temporarily disabled until #5494 is fixed
+            ;;'(+default/find-file-under-here. file)
+            ;;'(doom/find-file-in-emacsd . project-file)
+            ;;'(doom/find-file-in-other-project . project-file)
+            ;;'(doom/find-file-in-private-config . file)
+            '(doom/describe-active-minor-mode . minor-mode)
+            '(flycheck-error-list-set-filter . builtin)
             '(persp-switch-to-buffer . buffer)
             '(projectile-find-file . project-file)
-            '(doom/describe-active-minor-mode . minor-mode)
-            '(flycheck-error-list-set-filter . builtin)))
+            '(projectile-recentf . project-file)
+            '(projectile-switch-to-buffer . buffer)
+            '(projectile-switch-project . project-file)))
 
 
 (use-package! embark-consult

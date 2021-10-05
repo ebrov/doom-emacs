@@ -243,20 +243,15 @@ users).")
       request-storage-directory    (concat doom-cache-dir "request")
       shared-game-score-directory  (concat doom-etc-dir "shared-game-score/"))
 
-(defadvice! doom--write-to-etc-dir-a (orig-fn &rest args)
-  "Resolve Emacs storage directory to `doom-etc-dir', to keep local files from
-polluting `doom-emacs-dir'."
-  :around #'locate-user-emacs-file
-  (let ((user-emacs-directory doom-etc-dir))
-    (apply orig-fn args)))
-
-(defadvice! doom--write-enabled-commands-to-doomdir-a (orig-fn &rest args)
+(defadvice! doom--write-to-sane-paths-a (fn &rest args)
   "When enabling a disabled command, the `put' call is written to
 ~/.emacs.d/init.el, which causes issues for Doom, so write it to the user's
 config.el instead."
   :around #'en/disable-command
-  (let ((user-init-file custom-file))
-    (apply orig-fn args)))
+  :around #'locate-user-emacs-file
+  (let ((user-emacs-directory doom-etc-dir)
+        (user-init-file custom-file))
+    (apply fn args)))
 
 
 ;;
@@ -298,7 +293,7 @@ config.el instead."
 ;; The GC introduces annoying pauses and stuttering into our Emacs experience,
 ;; so we use `gcmh' to stave off the GC while we're using Emacs, and provoke it
 ;; when it's idle.
-(setq gcmh-idle-delay 5  ; default is 15s
+(setq gcmh-idle-delay 0.5  ; default is 15s
       gcmh-high-cons-threshold (* 16 1024 1024)  ; 16mb
       gcmh-verbose doom-debug-p)
 
@@ -310,6 +305,13 @@ config.el instead."
 ;; hasn't been determined, but do it there anyway, just in case. This increases
 ;; memory usage, however!
 (setq inhibit-compacting-font-caches t)
+
+;; PGTK builds only: this timeout adds latency to frame operations, like
+;; `make-frame-invisible', which are frequently called without a guard because
+;; it's inexpensive in non-PGTK builds. Lowering the timeout from the default
+;; 0.1 should make childframes and packages that manipulate them (like `lsp-ui',
+;; `company-box', and `posframe') feel much snappier. See emacs-lsp/lsp-ui#613.
+(setq pgtk-wait-for-event-timeout 0.001)
 
 ;; Increase how much is read from processes in a single chunk (default is 4kb).
 ;; This is further increased elsewhere, where needed (like our LSP module).

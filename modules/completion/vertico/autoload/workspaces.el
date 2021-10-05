@@ -10,14 +10,28 @@
            :narrow   ,(string-to-char (number-to-string (1+ n)))
            :category buffer
            :state    ,#'consult--buffer-state
-           :items    ,(lambda () (mapcar #'buffer-name (+workspace-buffer-list (nth n (+workspace-list)))))))
+           :items    ,(lambda ()
+                        (consult--buffer-query
+                         :sort 'visibility
+                         :as #'buffer-name
+                         :predicate (lambda (buf)
+                                      (+workspace-contains-buffer-p
+                                       buf
+                                       (nth n (+workspace-list))))))))
         ((eq n 'final)
          `(:name     ,(car (last (+workspace-list-names)))
            :hidden   t
            :narrow   ?0
            :category buffer
            :state    ,#'consult--buffer-state
-           :items    ,(lambda () (mapcar #'buffer-name (+workspace-buffer-list (car (last (+workspace-list))))))))
+           :items    ,(lambda ()
+                        (consult--buffer-query
+                         :sort 'visibility
+                         :as #'buffer-name
+                         :predicate (lambda (buf)
+                                      (+workspace-contains-buffer-p
+                                       buf
+                                       (car (last (+workspace-list)))))))))
         (t
          (user-error "invalid workspace source %s" n))))
 
@@ -38,16 +52,17 @@ Use consult narrowing with another workspace number to open a buffer from that w
                                     :require-match
                                     (confirm-nonexistent-file-or-buffer)
                                     :prompt (format "Switch to buffer (%s): "
-                                                    (+workspace-current-name)
-                                                    :history 'consult--buffer-history
-                                                    :sort nil)))
+                                                    (+workspace-current-name))
+                                    :history 'consult--buffer-history
+                                    :sort nil))
     ;; When the buffer does not belong to a source,
     ;; create a new buffer with the name.
     (unless (cdr buffer)
       (funcall consult--buffer-display (car buffer)))))
 
 ;;;###autoload
-(defun +vertico-embark-open-in-new-workspace (x)
+(defun +vertico/embark-open-in-new-workspace (x)
   "Open X (a file) in a new workspace."
+  (interactive)
   (+workspace/new)
   (find-file x))

@@ -151,10 +151,10 @@ Dictionary.app behind the scenes to get definitions.")
   ;; xref to be one too.
   (remove-hook 'xref-backend-functions #'etags--xref-backend)
   ;; ...however, it breaks `projectile-find-tag', unless we put it back.
-  (defadvice! +lookup--projectile-find-tag-a (orig-fn)
+  (defadvice! +lookup--projectile-find-tag-a (fn)
     :around #'projectile-find-tag
     (let ((xref-backend-functions '(etags--xref-backend t)))
-      (funcall orig-fn)))
+      (funcall fn)))
 
   ;; This integration is already built into evil
   (unless (featurep! :editor evil)
@@ -170,12 +170,12 @@ Dictionary.app behind the scenes to get definitions.")
 
     ;; HACK Fix #4386: `ivy-xref-show-xrefs' calls `fetcher' twice, which has
     ;; side effects that breaks in some cases (i.e. on `dired-do-find-regexp').
-    (defadvice! +lookup--fix-ivy-xrefs (orig-fn fetcher alist)
+    (defadvice! +lookup--fix-ivy-xrefs (fn fetcher alist)
       :around #'ivy-xref-show-xrefs
       (when (functionp fetcher)
         (setf (alist-get 'fetched-xrefs alist)
               (funcall fetcher)))
-      (funcall orig-fn fetcher alist)))
+      (funcall fn fetcher alist)))
 
   (use-package! helm-xref
     :when (featurep! :completion helm))
@@ -215,6 +215,15 @@ Dictionary.app behind the scenes to get definitions.")
   :unless IS-MAC
   :defer t
   :config
+  ;; REVIEW Temporarily fix abo-abo/define-word#31
+  (defadvice! +lookup--fix-define-word-a (fn &rest args)
+    "Fix `define-word' backends that require a user agent (like wordnik)."
+    :around #'define-word
+    (let ((url-request-extra-headers
+           '(("User-Agent" .
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_5_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36"))))
+      (apply fn args)))
+
   (setq define-word-displayfn-alist
         (cl-loop for (service . _) in define-word-services
                  collect (cons service #'+eval-display-results-in-popup))))

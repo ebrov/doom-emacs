@@ -69,6 +69,8 @@ purpose.")
 (setq make-backup-files nil)
 ;; Stop user configuration from interfering with package management
 (setq enable-dir-local-variables nil)
+;; Reduce ambiguity, embrace specificity. It's more predictable.
+(setq-default case-fold-search nil)
 
 ;; Default to using all cores, rather than half of them, since we compile things
 ;; ahead-of-time in a non-interactive session.
@@ -84,8 +86,10 @@ purpose.")
     ((help-p        ["-h" "--help"]  "Same as help command")
      (auto-accept-p ["-y" "--yes"]   "Auto-accept all confirmation prompts")
      (debug-p       ["-d" "--debug"] "Enables on verbose output")
+     (loadfile      ["-l" "--load" file] "Load an elisp FILE before executing any commands")
      (doomdir       ["--doomdir"  dir] "Use the private module at DIR (e.g. ~/.doom.d)")
      (localdir      ["--localdir" dir] "Use DIR as your local storage directory")
+     (nocolor       ["-C" "--nocolor"] "Disable colored output")
      &optional command
      &rest args)
   "A command line interface for managing Doom Emacs.
@@ -101,6 +105,8 @@ Environment variables:
   DOOMLOCALDIR  Where to store local files (normally ~/.emacs.d/.local)"
   (condition-case e
       (with-output-to! doom--cli-log-buffer
+        (when nocolor
+          (setq doom-output-backend nil))
         (catch 'exit
           (when (and (not (getenv "__DOOMRESTART"))
                      (or doomdir
@@ -120,9 +126,8 @@ Environment variables:
               (setenv "YES" auto-accept-p)
               (print! (info "Confirmations auto-accept enabled")))
             (throw 'exit "__DOOMRESTART=1 $@"))
-          ;; TODO Rotate logs out, instead of overwriting them?
-          (delete-file doom-cli-log-file)
-          (delete-file doom-cli-log-error-file)
+          (when loadfile
+            (load (doom-path loadfile) nil t t))
           (when help-p
             (when command
               (push command args))
@@ -204,6 +209,7 @@ Environment variables:
 (load! "cli/upgrade")
 (load! "cli/packages")
 (load! "cli/autoloads")
+(load! "cli/ci")
 
 (defcligroup! "Diagnostics"
   "For troubleshooting and diagnostics"

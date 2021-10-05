@@ -140,33 +140,47 @@ at the values with which this function was called."
      ,@body))
 
 (defmacro letf! (bindings &rest body)
-  "Temporarily rebind function and macros in BODY.
-Intended as a simpler version of `cl-letf' and `cl-macrolet'.
+  "Temporarily rebind function, macros, and advice in BODY.
 
-BINDINGS is either a) a list of, or a single, `defun' or `defmacro'-ish form, or
-b) a list of (PLACE VALUE) bindings as `cl-letf*' would accept.
+Intended as syntax sugar for `cl-letf', `cl-labels', `cl-macrolet', and
+temporary advice.
 
-TYPE is either `defun' or `defmacro'. NAME is the name of the function. If an
-original definition for NAME exists, it can be accessed as a lexical variable by
-the same name, for use with `funcall' or `apply'. ARGLIST and BODY are as in
-`defun'.
+BINDINGS is either:
+
+  A list of, or a single, `defun', `defun*', `defmacro', or `defadvice' forms.
+  A list of (PLACE VALUE) bindings as `cl-letf*' would accept.
+
+TYPE is one of:
+
+  `defun' (uses `cl-letf')
+  `defun*' (uses `cl-labels'; allows recursive references),
+  `defmacro' (uses `cl-macrolet')
+  `defadvice' (uses `defadvice!' before BODY, then `undefadvice!' after)
+
+NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
+`defadvice!', respectively.
 
 \(fn ((TYPE NAME ARGLIST &rest BODY) ...) BODY...)"
   (declare (indent defun))
   (setq body (macroexp-progn body))
-  (when (memq (car bindings) '(defun defmacro))
+  (when (memq (car bindings) '(defun defun* defmacro defadvice))
     (setq bindings (list bindings)))
-  (dolist (binding (reverse bindings) (macroexpand body))
+  (dolist (binding (reverse bindings) body)
     (let ((type (car binding))
           (rest (cdr binding)))
       (setq
        body (pcase type
               (`defmacro `(cl-macrolet ((,@rest)) ,body))
-              (`defun `(cl-letf* ((,(car rest) (symbol-function #',(car rest)))
-                                  ((symbol-function #',(car rest))
-                                   (lambda ,(cadr rest) ,@(cddr rest))))
-                         (ignore ,(car rest))
-                         ,body))
+              (`defadvice `(progn (defadvice! ,@rest)
+                                  (unwind-protect ,body (undefadvice! ,@rest))))
+              ((or `defun `defun*)
+               `(cl-letf ((,(car rest) (symbol-function #',(car rest))))
+                  (ignore ,(car rest))
+                  ,(if (eq type 'defun*)
+                       `(cl-labels ((,@rest)) ,body)
+                     `(cl-letf (((symbol-function #',(car rest))
+                                 (fn! ,(cadr rest) ,@(cddr rest))))
+                        ,body))))
               (_
                (when (eq (car-safe type) 'function)
                  (setq type (list 'symbol-function type)))
@@ -215,8 +229,20 @@ See `eval-if!' for details on this macro's purpose."
 (defmacro fn! (arglist &rest body)
   "Returns (cl-function (lambda ARGLIST BODY...))
 The closure is wrapped in `cl-function', meaning ARGLIST will accept anything
-`cl-defun' will. "
+`cl-defun' will. Implicitly adds `&allow-other-keys' if `&key' is present in
+ARGLIST."
   (declare (indent defun) (doc-string 1) (pure t) (side-effect-free t))
+  ;; Don't complain about undeclared keys.
+  (when (memq '&key arglist)
+    (if (memq '&aux arglist)
+        (let (newarglist arg)
+          (while arglist
+            (setq arg (pop arglist))
+            (when (eq arg '&aux)
+              (push '&allow-other-keys newarglist))
+            (push arg newarglist))
+          (setq arglist (nreverse newarglist)))
+      (setq arglist (append arglist (list '&allow-other-keys)))))
   `(cl-function (lambda ,arglist ,@body)))
 
 (defmacro cmd! (&rest body)
@@ -366,16 +392,14 @@ This is a wrapper around `eval-after-load' that:
               ;; macros/packages.
               `(eval-after-load ',package ',(macroexp-progn body))))
     (let ((p (car package)))
-      (cond ((not (keywordp p))
-             `(after! (:and ,@package) ,@body))
-            ((memq p '(:or :any))
+      (cond ((memq p '(:or :any))
              (macroexp-progn
               (cl-loop for next in (cdr package)
                        collect `(after! ,next ,@body))))
             ((memq p '(:and :all))
-             (dolist (next (cdr package))
-               (setq body `((after! ,next ,@body))))
-             (car body))))))
+             (dolist (next (reverse (cdr package)) (car body))
+               (setq body `((after! ,next ,@body)))))
+            (`(after! (:and ,@package) ,@body))))))
 
 (defun doom--handle-load-error (e target path)
   (let* ((source (file-name-sans-extension target))

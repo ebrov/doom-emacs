@@ -273,7 +273,7 @@ Continues comments if executed from a commented line. Consults
         "s-l" #'goto-line
         ;; Restore OS undo, save, copy, & paste keys (without cua-mode, because
         ;; it imposes some other functionality and overhead we don't need)
-        "s-f" #'swiper
+        "s-f" (if (featurep! :completion vertico) #'consult-line #'swiper)
         "s-z" #'undo
         "s-Z" #'redo
         "s-c" (if (featurep 'evil) #'evil-yank #'copy-region-as-kill)
@@ -433,9 +433,9 @@ Continues comments if executed from a commented line. Consults
         ;; auto-indent on newline by default
         :gi [remap newline] #'newline-and-indent
         ;; insert literal newline
-        :gi "S-RET"         #'+default/newline
-        :gi [S-return]      #'+default/newline
-        :gi "C-j"           #'+default/newline
+        :i  "S-RET"         #'+default/newline
+        :i  [S-return]      #'+default/newline
+        :i  "C-j"           #'+default/newline
 
         ;; Add new item below current (without splitting current line).
         :gi "C-RET"         #'+default/newline-below

@@ -4,22 +4,20 @@
 (package! vertico
   :recipe (:host github :repo "minad/vertico"
            :files ("*.el" "extensions/*.el"))
-  :pin "4a9029714e847832d3ecb3ae74a7049306924f2e")
+  :pin "0df75c0bbc545b1bd008718b1af2e6c0df18fe74")
 
-(package! orderless :pin "1e84120a28525ccb47b602fc19b7afbeffbbe502")
+(package! orderless :pin "62f71c34baca0b7d0adeab4a1c07d85ffcee80d9")
 
-(package! consult :pin "28f9ba8bdfdb13257862a658715b6ceb96f4951e")
+(package! consult :pin "dc6e45586194cb30b3ba7614189718f3db1391c3")
 (when (featurep! :checkers syntax)
   (package! consult-flycheck :pin "92b259e6a8ebe6439f67d3d7ffa44b7e64b76478"))
 
-(package! embark :pin "be03ce9ce1630b32e29cc50118d058c05696cb35")
-(package! embark-consult :pin "be03ce9ce1630b32e29cc50118d058c05696cb35")
+(package! embark :pin "1492aefc00abc3355bf04c2ed05f40ff2f523fcf")
+(package! embark-consult :pin "1492aefc00abc3355bf04c2ed05f40ff2f523fcf")
 
-(package! marginalia :pin "a3a8edbf25db4b1e167f1fdff6f60a065d0bf9cb")
+(package! marginalia :pin "cb1d3ba604dda17d8d44e7355ad76a1651830a30")
 
 (package! wgrep :pin "f9687c28bbc2e84f87a479b6ce04407bb97cfb23")
 
 (when (featurep! +icons)
-  (package! all-the-icons-completion
-    :recipe (:host github :repo "iyefrat/all-the-icons-completion")
-    :pin "24cdb3b42c6ca0a8926ad6958c76d7928fc559ce"))
+  (package! all-the-icons-completion :pin "96500418541b7376cd0b3e4583b9509c0dd92b27"))

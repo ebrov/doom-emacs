@@ -138,9 +138,9 @@
          "C-u"     #'company-previous-page
          "C-d"     #'company-next-page
          "C-s"     #'company-filter-candidates
-         "C-S-s"   (cond ((featurep! :completion helm)     #'helm-company)
+         "C-S-s"   (cond ((featurep! :completion vertico)  #'completion-at-point)
                          ((featurep! :completion ivy)      #'counsel-company)
-                         ((featurep! :completion vertico)  #'completion-at-point))
+                         ((featurep! :completion helm)     #'helm-company))
          "C-SPC"   #'company-complete-common
          "TAB"     #'company-complete-common-or-cycle
          [tab]     #'company-complete-common-or-cycle
@@ -209,11 +209,9 @@
          "M-RET" #'vertico-exit-input
          "C-SPC" #'+vertico/embark-preview
          "C-j"   #'vertico-next
-         "C-M-j" #'+vertico/next-candidate-preview
-         "C-S-j" #'vertico-next-group
+         "C-M-j" #'vertico-next-group
          "C-k"   #'vertico-previous
-         "C-M-k" #'+vertico/previous-candidate-preview
-         "C-S-k" #'vertico-previous-group)))
+         "C-M-k" #'vertico-previous-group)))
 
 
 ;;; :ui
@@ -304,9 +302,9 @@
        :desc "Switch buffer"           "<" #'switch-to-buffer)
       :desc "Switch to last buffer" "`"    #'evil-switch-to-windows-last-buffer
       :desc "Resume last search"    "'"
-      (cond ((featurep! :completion ivy)        #'ivy-resume)
-            ((featurep! :completion helm)       #'helm-resume)
-            ((featurep! :completion vertico)    #'vertico-repeat))
+      (cond ((featurep! :completion vertico)    #'vertico-repeat)
+            ((featurep! :completion ivy)        #'ivy-resume)
+            ((featurep! :completion helm)       #'helm-resume))
 
       :desc "Search for symbol in project" "*" #'+default/search-project-for-symbol-at-point
       :desc "Search project"               "/" #'+default/search-project
@@ -386,7 +384,7 @@
          :desc "Jump to symbol in any workspace"     "J"   #'helm-lsp-global-workspace-symbol)
         (:when (featurep! :completion vertico)
          :desc "Jump to symbol in current workspace" "j"   #'consult-lsp-symbols
-         :desc "Jump to symbol in any workspace"     "J"   (cmd! #'consult-lsp-symbols '(4)))
+         :desc "Jump to symbol in any workspace"     "J"   (cmd!! #'consult-lsp-symbols 'all-workspaces))
         (:when (featurep! :ui treemacs +lsp)
          :desc "Errors list"                         "X"   #'lsp-treemacs-errors-list
          :desc "Incoming call hierarchy"             "y"   #'lsp-treemacs-call-hierarchy
@@ -398,7 +396,9 @@
        (:when (featurep! :tools lsp +eglot)
         :desc "LSP Execute code action" "a" #'eglot-code-actions
         :desc "LSP Rename" "r" #'eglot-rename
-        :desc "LSP Find declaration" "j" #'eglot-find-declaration)
+        :desc "LSP Find declaration"                 "j"   #'eglot-find-declaration
+        (:when (featurep! :completion vertico)
+         :desc "Jump to symbol in current workspace" "j"   #'consult-eglot-symbols))
        :desc "Compile"                               "c"   #'compile
        :desc "Recompile"                             "C"   #'recompile
        :desc "Jump to definition"                    "d"   #'+lookup/definition
@@ -412,9 +412,7 @@
        :desc "Find type definition"                  "t"   #'+lookup/type-definition
        :desc "Delete trailing whitespace"            "w"   #'delete-trailing-whitespace
        :desc "Delete trailing newlines"              "W"   #'doom/delete-trailing-newlines
-       :desc "List errors"                           "x"   #'flymake-show-diagnostics-buffer
-       (:when (featurep! :checkers syntax)
-        :desc "List errors"                         "x"   #'flycheck-list-errors))
+       :desc "List errors"                           "x"   #'+default/diagnostics)
 
       ;;; <leader> f --- file
       (:prefix-map ("f" . "file")
@@ -516,9 +514,9 @@
        :desc "Org agenda"                   "a" #'org-agenda
        (:when (featurep! :tools biblio)
         :desc "Bibliographic entries"        "b"
-        (cond ((featurep! :completion ivy)      #'ivy-bibtex)
-              ((featurep! :completion helm)     #'helm-bibtex)
-              ((featurep! :completion vertico)  #'bibtex-actions-open-entry)))
+        (cond ((featurep! :completion vertico)  #'bibtex-actions-open-entry)
+              ((featurep! :completion ivy)      #'ivy-bibtex)
+              ((featurep! :completion helm)     #'helm-bibtex)))
 
        :desc "Toggle last org-clock"        "c" #'+org/toggle-last-clock
        :desc "Cancel current org-clock"     "C" #'org-clock-cancel
@@ -641,6 +639,7 @@
        :desc "Browse project"               "." #'+default/browse-project
        :desc "Browse other project"         ">" #'doom/browse-in-other-project
        :desc "Run cmd in project root"      "!" #'projectile-run-shell-command-in-root
+       :desc "Async cmd in project root"    "&" #'projectile-run-async-shell-command-in-root
        :desc "Add new project"              "a" #'projectile-add-known-project
        :desc "Switch to project buffer"     "b" #'projectile-switch-to-buffer
        :desc "Compile in project"           "c" #'projectile-compile-project
@@ -703,14 +702,16 @@
       ;;; <leader> s --- search
       (:prefix-map ("s" . "search")
        :desc "Search buffer"                "b"
-       (cond ((featurep! :completion helm)      #'swiper)
+       (cond ((featurep! :completion vertico)   #'+default/search-buffer)
              ((featurep! :completion ivy)       #'swiper)
-             ((featurep! :completion vertico)   #'consult-line))
+             ((featurep! :completion helm)      #'swiper))
        :desc "Search all open buffers"      "B"
-       (cond ((featurep! :completion helm)      #'swiper-all)
-             ((featurep! :completion ivy)       #'swiper-all))
+       (cond ((featurep! :completion vertico)   (cmd!! #'consult-line-multi 'all-buffers))
+             ((featurep! :completion ivy)       #'swiper-all)
+             ((featurep! :completion helm)      #'swiper-all))
        :desc "Search current directory"     "d" #'+default/search-cwd
        :desc "Search other directory"       "D" #'+default/search-other-cwd
+       :desc "Search .emacs.d"              "e" #'+default/search-emacsd
        :desc "Locate file"                  "f" #'locate
        :desc "Jump to symbol"               "i" #'imenu
        :desc "Jump to visible link"         "l" #'link-hint-open-link
@@ -726,9 +727,9 @@
        :desc "Jump to mark"                 "r" #'evil-show-marks
        :desc "Search buffer"                "s" #'+default/search-buffer
        :desc "Search buffer for thing at point" "S"
-       (cond ((featurep! :completion helm)      #'swiper-isearch-thing-at-point)
+       (cond ((featurep! :completion vertico)   #'+vertico/search-symbol-at-point)
              ((featurep! :completion ivy)       #'swiper-isearch-thing-at-point)
-             ((featurep! :completion vertico)   #'+vertico/search-symbol-at-point))
+             ((featurep! :completion helm)      #'swiper-isearch-thing-at-point))
        :desc "Dictionary"                   "t" #'+lookup/dictionary-definition
        :desc "Thesaurus"                    "T" #'+lookup/synonyms)
 
