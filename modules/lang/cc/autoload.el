@@ -22,7 +22,7 @@
                (re-search-backward
                 "\\(?:p\\(?:ublic\\|r\\(?:otected\\|ivate\\)\\)\\)"
                 (c-langelem-pos langelem) t))))
-       '+))
+       '*))
 
 ;;;###autoload
 (defun +cc-lineup-arglist-close (langlem)
