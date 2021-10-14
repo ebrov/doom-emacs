@@ -107,7 +107,7 @@ This is ignored by ccls.")
              ;; indent access keywords +1 level, and properties beneath them
              ;; another level
              (access-label . -)
-             (inclass +cc-c++-lineup-inclass *)
+             (inclass +cc-c++-lineup-inclass 2)
              (member-init-intro . 2)
              (label . 0))))
 
