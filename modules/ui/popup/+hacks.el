@@ -246,6 +246,14 @@ the command buffer."
     (when (+popup-window-p win)
       (select-window win))))
 
+
+;;;###package latex
+(defadvice! +popup--use-popup-window-for-reftex-citation-a (fn &rest args)
+  :around #'reftex-do-citation
+  (letf! ((#'switch-to-buffer-other-window #'pop-to-buffer))
+    (apply fn args)))
+
+
 ;;;###package org
 (after! org
   (defadvice! +popup--suppress-delete-other-windows-a (fn &rest args)
@@ -357,6 +365,15 @@ Ugh, such an ugly hack."
   (letf! ((#'find-function #'find-function-other-window))
     (funcall fn function)))
 
+
+;;;###package undo-tree
+(defadvice! +popup--use-popup-window-for-undo-tree-visualizer-a (fn &rest args)
+  "TODO"
+  :around #'undo-tree-visualize
+  (if undo-tree-visualizer-diff
+      (apply fn args)
+    (letf! ((#'switch-to-buffer-other-window #'pop-to-buffer))
+      (apply fn args))))
 
 ;;;###package wgrep
 (progn

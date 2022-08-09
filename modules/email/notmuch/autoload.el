@@ -8,9 +8,9 @@
       (progn
         (when (featurep! :ui workspaces)
           (+workspace-switch "*MAIL*" t))
-        (if-let* ((buf (cl-find-if (lambda (it) (string-match-p "^\\*notmuch" (buffer-name (window-buffer it))))
+        (if-let* ((win (cl-find-if (lambda (it) (string-match-p "^\\*notmuch" (buffer-name (window-buffer it))))
                                    (doom-visible-windows))))
-            (select-window (get-buffer-window buf))
+            (select-window win)
           (funcall +notmuch-home-function))
         (when (featurep! :ui workspaces)
           (+workspace/display)))
@@ -32,7 +32,7 @@
     (+workspace/delete "*MAIL*")))
 
 (defun +notmuch-get-sync-command ()
-  "Return a shell command string to synchronize your notmuch mmail with."
+  "Return a shell command string to synchronize your notmuch mail with."
   (let* ((afew-cmd "afew -a -t")
          (sync-cmd
           (pcase +notmuch-sync-backend
@@ -76,32 +76,32 @@
 ;;;###autoload
 (defun +notmuch/search-delete ()
   (interactive)
-  (notmuch-search-add-tag (list "+trash" "-inbox" "-unread"))
+  (notmuch-search-add-tag +notmuch-delete-tags)
   (notmuch-tree-next-message))
 
 ;;;###autoload
 (defun +notmuch/tree-delete ()
   (interactive)
-  (notmuch-tree-add-tag (list "+trash" "-inbox" "-unread"))
+  (notmuch-tree-add-tag +notmuch-delete-tags)
   (notmuch-tree-next-message))
 
 ;;;###autoload
 (defun +notmuch/show-delete ()
   "Mark email for deletion in notmuch-show"
   (interactive)
-  (notmuch-show-add-tag (list "+trash" "-inbox" "-unread"))
+  (notmuch-show-add-tag +notmuch-delete-tags)
   (notmuch-show-next-thread-show))
 
 ;;;###autoload
 (defun +notmuch/search-spam ()
   (interactive)
-  (notmuch-search-add-tag (list "+spam" "-inbox" "-unread"))
+  (notmuch-search-add-tag +notmuch-spam-tags)
   (notmuch-search-next-thread))
 
 ;;;###autoload
 (defun +notmuch/tree-spam ()
   (interactive)
-  (notmuch-tree-add-tag (list "+spam" "-inbox" "-unread"))
+  (notmuch-tree-add-tag +notmuch-spam-tags)
   (notmuch-tree-next-message))
 
 ;;;###autoload

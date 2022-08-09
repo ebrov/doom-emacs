@@ -3,7 +3,7 @@
 (use-package! dired
   :commands dired-jump
   :init
-  (setq dired-auto-revert-buffer t  ; don't prompt to revert; just do it
+  (setq dired-auto-revert-buffer (lambda (dir) (not (file-remote-p dir)))  ; don't prompt to revert; just do it
         dired-dwim-target t  ; suggest a target for moving/copying intelligently
         dired-hide-details-hide-symlink-targets nil
         ;; Always copy/delete recursively
@@ -103,7 +103,7 @@ we have to clean it up ourselves."
         (local-unset-key [mouse-1]))))
 
   (defadvice! +dired--ranger-travel-a ()
-    "Temprorary fix for this function until ralesi/ranger.el#236 gets merged."
+    "Temporary fix for this function until ralesi/ranger.el#236 gets merged."
     :override #'ranger-travel
     (interactive)
     (let ((prompt "Travel: "))
@@ -157,10 +157,10 @@ we have to clean it up ourselves."
   (setq dired-omit-verbose nil
         dired-omit-files
         (concat dired-omit-files
-                "\\|^.DS_Store\\'"
-                "\\|^.project\\(?:ile\\)?\\'"
-                "\\|^.\\(svn\\|git\\)\\'"
-                "\\|^.ccls-cache\\'"
+                "\\|^\\.DS_Store\\'"
+                "\\|^\\.project\\(?:ile\\)?\\'"
+                "\\|^\\.\\(?:svn\\|git\\)\\'"
+                "\\|^\\.ccls-cache\\'"
                 "\\|\\(?:\\.js\\)?\\.meta\\'"
                 "\\|\\.\\(?:elc\\|o\\|pyo\\|swp\\|class\\)\\'"))
   ;; Disable the prompt about whether I want to kill the Dired buffer for a

@@ -94,7 +94,7 @@
 
   (plist-put (cdr (assoc :flags mu4e-header-info)) :shortname " Flags") ; default=Flgs
   (add-to-list 'mu4e-bookmarks
-               '(:name "Flagged messages" :query "flag:flagged" :key ?f) t)
+               '("flag:flagged" "Flagged messages" ?f) t)
 
   ;; TODO avoid assuming that all-the-icons is present
   (defvar +mu4e-header-colorized-faces
@@ -193,8 +193,9 @@
   (when (fboundp 'imagemagick-register-types)
     (imagemagick-register-types))
 
-  (map! :map mu4e-main-mode-map
-        :ne "h" #'+workspace/other)
+  (when (featurep! :ui workspaces)
+    (map! :map mu4e-main-mode-map
+          :ne "h" #'+workspace/other))
 
   (map! :map mu4e-headers-mode-map
         :vne "l" #'+mu4e/capture-msg-to-agenda)

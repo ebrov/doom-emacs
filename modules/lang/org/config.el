@@ -17,7 +17,7 @@
   "An alist mapping languages to babel libraries. This is necessary for babel
 libraries (ob-*.el) that don't match the name of the language.
 
-For example, (fish . shell) will cause #+BEGIN_SRC fish blocks to load
+For example, (fish . shell) will cause #+begin_src fish blocks to load
 ob-shell.el when executed.")
 
 (defvar +org-babel-load-functions ()
@@ -310,7 +310,12 @@ Also adds support for a `:sync' parameter to override `:async'."
   (after! python
     (unless org-babel-python-command
       (setq org-babel-python-command
-            (concat python-shell-interpreter " " python-shell-interpreter-args))))
+            (string-trim
+             (concat python-shell-interpreter " "
+                     (if (string-match-p "\\<i?python[23]?$" python-shell-interpreter)
+                         (replace-regexp-in-string
+                          "\\(^\\| \\)-i\\( \\|$\\)" " " python-shell-interpreter-args)
+                       python-shell-interpreter-args))))))
 
   (after! ob-ditaa
     ;; TODO Should be fixed upstream
@@ -798,6 +803,7 @@ between the two."
         "+" #'org-ctrl-c-minus
         "," #'org-switchb
         "." #'org-goto
+        "@" #'org-cite-insert
         (:when (featurep! :completion ivy)
          "." #'counsel-org-goto
          "/" #'counsel-org-goto-all)
