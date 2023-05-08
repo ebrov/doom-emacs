@@ -111,7 +111,7 @@ doctor` to check for any that you may have missed.
 
 # Install
 ``` sh
-git clone --depth 1 https://github.com/doomemacs/doomemacs ~/.config/emacs
+git clone --depth 1 https://github.com/ebrov/doom-emacs.git ~/.config/emacs
 ~/.config/emacs/bin/doom install
 ```
 
